@@ -5,7 +5,7 @@
 <!-- Load d3.js -->
 <script src="https://d3js.org/d3.v4.js"></script>
 
-<link rel="stylesheet" type="text/css" href="./mstyle.css">
+<link rel="stylesheet" type="text/css" href="mstyle.css">
 
 <!-- A bit of CSS: change stroke color of circle on hover (white -> black) -->
 <style>
@@ -47,7 +47,7 @@
 
   <div id="chartleft">
     <h4>Cases Vs Deaths</h4>
-    <div id="lefttoolbox1"></div>
+    <div id="lefttoolbox"></div>
   </div>
 
   <div id="chartright">
@@ -95,7 +95,7 @@
 
       // Add a scale for bubble size
       var z = d3.scaleLinear()
-        .domain([200000, 1000000])
+        .domain([20000, 600000])
         .range([1, 4]);
 
 
@@ -134,7 +134,7 @@
 
       console.log(color);
       // -1- Create a tooltip div that is hidden by default:
-      var tooltip1 = d3.select("#lefttoolbox1")
+      var tooltip1 = d3.select("#lefttoolbox")
         .append("div")
         .style("opacity", 0)
         .attr("class", "tooltip")
@@ -151,8 +151,7 @@
         tooltip1
           .style("opacity", 1)
           .data(dataReady)
-          .html("State: " + d.key +"<br/>Cases: " + d.value.positive + "<br/>Deaths: " + d.value.deceased
-            + "<br/>Tests: " + d.value.tests)
+          .html("State: " + d.key +"<br/>Cases: " + d.value.positive + "<br/>Deaths: " + d.value.deceased)
           .style("left", (d3.event.pageY + 16) + "px")
           .style("top", (d3.event.pageX + 16) + "px")
       }
@@ -211,7 +210,7 @@
 
         // Add X axis
         var x = d3.scaleLinear()
-          .domain([0, 2500])
+          .domain([0, 2700])
           .range([0, width]);
         svg.append("g")
           .attr("transform", "translate(0," + height + ")")
@@ -226,8 +225,8 @@
 
         // Add a scale for bubble size
         var z = d3.scaleLinear()
-          .domain([0, 5000])
-          .range([1, 4]);
+          .domain([0, 1000])
+          .range([1, 8]);
 
         var dataReady = d3.nest() // nest function allows to group the calculation per level of a factor
           .key(function(d) {
@@ -272,7 +271,7 @@
 
         // Add a scale for bubble color
         var color = d3.scaleOrdinal()
-        .domain([2000,50000,100000,250000,500000])
+        .domain([10,100,1000,2000,3000])
         .range(['#FFBF00','#FF5F42','#D2222D','#761603'])
 
         // -1- Create a tooltip div that is hidden by default:
@@ -295,8 +294,7 @@
           tooltip
             .style("opacity", 1)
             .data(finalData)
-            .html("State: " + d.key +"<br/>Cases: " + Math.round(d.value.positive/d.pop)+ "<br/>Deaths: " + d.value.deceased
-                         +"<br/>Tests:" + Math.round(d.value.tests/d.pop))
+            .html("State: " + d.key +"<br/>Cases: " + Math.round(d.value.positive/d.pop)+ "<br/>Deaths: " + d.value.deceased)
             .style("left", (d3.event.pageY + 16) + "px")
             .style("top", (d3.event.pageX +16) + "px")
         }
@@ -326,7 +324,7 @@
             return y(d.value.deceased);
           })
           .attr("r", function(d) {
-            return z(d.value.tests/d.pop);
+            return z(d.value.positive/d.pop);
           })
           .style("fill", function(d) {
             return color(d.value.positive/d.pop);
