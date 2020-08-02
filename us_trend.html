@@ -1,0 +1,291 @@
+
+<svg width='1200' height='800'></svg>
+<div id='tooltip' style='position:absolute;background-color:lightgray;padding:5px'></div>
+<script src="https://d3js.org/d3.v4.js"></script>
+<link rel="stylesheet" type="text/css" href="./mstyle.css">
+
+<body>
+
+  <div style="width:800px; margin:0 auto;">
+    <button onclick="window.location.href='us_states.html';" class="button">
+      Go Back
+    </button>
+    <button onclick="window.location.href='hist.html';" class="button">
+      Statewise Trend in US
+    </button>
+  </div>
+  <div id=>
+
+  </div>
+</body>
+
+<script>
+  // Define margins, dimensions, and some line colors
+
+  const margin = {
+    top: 70,
+    right: 120,
+    bottom: 30,
+    left: 40
+  };
+  const width = 1200 - margin.left - margin.right;
+  const height = 800 - margin.top - margin.bottom;
+
+  // Define the scales and tell D3 how to draw the line
+  //const x = d3.scaleLinear().domain([20200301, 20200801]).range([0, width]);
+  var parseDate = d3.timeParse("%Y%m%d");
+
+  var x = d3.scaleTime()
+    .domain([parseDate(20200301), parseDate(20200801)])
+    .range([0, width]);
+  const y = d3.scaleLinear().domain([0, 90000]).range([height, 0]);
+  const line = d3.line().x(d => x(d.date)).y(d => y(d.value));
+
+  const chart = d3.select('svg').append('g')
+    .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+  const tooltip = d3.select('#tooltip');
+  const tooltipLine = chart.append('line');
+
+  // Add the axes and a title
+  //const xAxis = d3.axisBottom(x).tickFormat(d3.timeFormat("%m"));
+  var xAxis = d3.axisBottom(x)
+    .tickFormat(d3.timeFormat("%b"));
+
+  const yAxis = d3.axisLeft(y).tickFormat(d3.format('.2s'));
+  chart.append('g').call(yAxis);
+  chart.append('g').attr('transform', 'translate(0,' + height + ')').call(xAxis);
+
+
+  chart.append("text")
+    .attr("x", width / 2)
+    .attr("y", 2)
+    .attr("class", "title")
+    .style("text-anchor", "middle")
+    .text("Progression of Covid Statistics in US");
+
+
+  // Load the data and draw a chart
+  let pos, tipBox;
+
+  d3.csv('./data/daily.csv', function(data) {
+
+    var allGroup = d3.map(data, function(d) {
+      return (d.date)
+    }).keys();
+
+    var dataReady = d3.nest() // nest function allows to group the calculation per level of a factor
+      .key(function(d) {
+        return d.date;
+      })
+      .rollup(function(v) {
+        return {
+          positive: d3.sum(v, function(d) {
+            return d.positiveIncrease;
+          }),
+          deceased: d3.sum(v, function(d) {
+            return Math.abs(d.deathIncrease);
+          }),
+          tests: d3.sum(v, function(d) {
+            return Math.abs(d.totalTestResultsIncrease);
+          }),
+          hospitalized: d3.sum(v, function(d) {
+            return Math.abs(d.hospitalizedCurrently);
+          })
+        };
+      })
+      .entries(data);
+
+    var positive = [];
+    var deceased = [];
+    var tests = [];
+    var hospitalized = [];
+
+
+    dataReady.forEach(function(d) {
+      positive.push({
+        "date": parseDate(d.key),
+        "value": d.value.positive
+      });
+      deceased.push({
+        "date": parseDate(d.key),
+        "value": d.value.deceased
+      });
+      tests.push({
+        "date": parseDate(d.key),
+        "value": d.value.tests / 100
+      });
+      hospitalized.push({
+        "date": parseDate(d.key),
+        "value": d.value.hospitalized
+      });
+    })
+    pos = [{
+      "chart": "positive",
+      "color": "blue",
+      "name": "Daily positives",
+      "values": positive
+    }];
+    pos.push({
+      "chart": "deceased",
+      "color": "red",
+      "name": "Deceased",
+      "values": deceased
+    });
+    pos.push({
+      "chart": "tests",
+      "color": "green",
+      "name": "Daily tests",
+      "values": tests
+    });
+    pos.push({
+      "chart": "hospitalized",
+      "color": "orange",
+      "name": "Hospitalized ",
+      "values": hospitalized
+    });
+
+    console.log(pos);
+    //console.log(pos.values)
+
+    chart.selectAll()
+      .data(pos).enter()
+      .append('path')
+      .attr('fill', 'none')
+      .attr('stroke', d => d.color)
+      .attr('stroke-width', 2)
+      .datum(function(d) {
+        return d.values;
+      })
+      .attr('d', line);
+
+    chart.selectAll()
+      .data(pos).enter()
+      .append('text')
+      .html(d => d.name)
+      .attr('fill', d => d.color)
+      .attr('alignment-baseline', 'middle')
+      .attr('x', width)
+      .attr('dx', '.5em')
+      .attr('y', d => y(d.values[150].value));
+
+    tipBox = chart.append('rect')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('opacity', 0)
+      .on('mousemove', drawTooltip)
+      .on('mouseout', removeTooltip);
+
+
+    chart.append("svg:defs").append("svg:marker")
+      .attr("id", "triangle")
+      .attr("refX", 6)
+      .attr("refY", 6)
+      .attr("markerWidth", 30)
+      .attr("markerHeight", 30)
+      .attr("markerUnits", "userSpaceOnUse")
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M 0 0 12 6 0 12 3 6")
+      .style("fill", "red");
+
+
+    chart.append("rect")
+      .attr("x", 400)
+      .attr("y", 150)
+      .attr("width", 410)
+      .attr("height", 60)
+      .attr("fill", "white")
+      .attr("stroke", "gray").attr("stroke-width", ".2");
+
+      chart.append("rect")
+        .attr("x", 900)
+        .attr("y", 550)
+        .attr("width", 100)
+        .attr("height", 60)
+        .attr("fill", "white")
+        .attr("stroke", "gray").attr("stroke-width", ".2");
+
+    chart.append("text")
+      .attr("x", 410)
+      .attr("y", 160)
+      .attr("dy", ".71em").attr("font-weight", "bold").attr("font-size", "15")
+      .text("From the chart the cases and hospitalizations had gone down");
+    chart.append("text")
+      .attr("x", 410)
+      .attr("y", 175)
+      .attr("dy", ".71em").attr("font-weight", "bold").attr("font-size", "15")
+      .text("in May, but towards the later part of June it is trending");
+    chart.append("text")
+      .attr("x", 410)
+      .attr("y", 190)
+      .attr("dy", ".71em").attr("font-weight", "bold").attr("font-size", "15")
+      .text("upwards");
+    chart.append("line")
+      .attr("x1", 450)
+      .attr("y1", 210)
+      .attr("x2", 500)
+      .attr("y2", 350)
+      .attr("stroke-width", 2)
+      .attr("stroke", "red")
+      .attr("marker-end", "url(#triangle)");
+
+      chart.append("line")
+        .attr("x1", 650)
+        .attr("y1", 210)
+        .attr("x2", 850)
+        .attr("y2", 250)
+        .attr("stroke-width", 2)
+        .attr("stroke", "red")
+        .attr("marker-end", "url(#triangle)");
+
+        chart.append("text")
+          .attr("x", 910)
+          .attr("y", 560)
+          .attr("dy", ".71em").attr("font-weight", "bold").attr("font-size", "15")
+          .text("Tests per 100");
+
+  })
+
+  function removeTooltip() {
+    if (tooltip) tooltip.style('display', 'none');
+    if (tooltipLine) tooltipLine.attr('stroke', 'none');
+  }
+
+  function drawTooltip() {
+    const dateC = x.invert(d3.mouse(tipBox.node())[0]);
+    /*
+        pos.sort((a, b) => {
+          console.log(b.values);
+          console.log(b.values.find(h => h.date.getTime() == dateC.getTime()));
+          return b.values.find(h => h.date.getTime() == dateC.getTime()).value
+                  - a.values.find(h => h.date.getTime() == dateC.getTime()).value;
+        })
+    */
+    tooltipLine.attr('stroke', 'black')
+      .attr('x1', x(dateC))
+      .attr('x2', x(dateC))
+      .attr('y1', 0)
+      .attr('y2', height);
+
+
+    tooltip.html(dateC.toDateString())
+      .style('display', 'block')
+      .style('left', d3.event.pageX + 20)
+      .style('top', d3.event.pageY - 20)
+      .selectAll()
+      .data(pos).enter()
+      .append('div')
+      .style('color', d => d.color)
+      .html(d => d.name + ': ' +
+        d.values.find(h => h.date.toDateString() == dateC.toDateString()).value);
+    //.html(d => d.name + ': ' + d.values.find(function(h) {
+    //
+    //      if (h.date.toDateString()  == dateC.toDateString() ) {
+    //      console.log(h);
+    //    return h.value;
+    //}
+    //console.log(h.date.toDateString());
+    //}));
+  }
+</script>
