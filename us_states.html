@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+
+<!-- Load d3.js -->
+<script src="https://d3js.org/d3.v4.js"></script>
+
+<link rel="stylesheet" type="text/css" href="./mstyle.css">
+
+<!-- A bit of CSS: change stroke color of circle on hover (white -> black) -->
+<style>
+  .bubbles {
+    stroke-width: 2px;
+    stroke: white;
+  }
+
+  .bubbles:hover {
+    stroke: black;
+  }
+</style>
+
+<body>
+
+  <div id = "main">
+
+  <div id="div_viz">
+    <h1>Visualization of Covid19 Progression in United States</h1>
+    <p>COVID-19, is an infectious disease caused by a newly discovered coronavirus. The first cluster was identified in December 2019, in Wuhan, China.
+      On 12 January 2020, sequences of the new novel coronavirus isolated from some clustered cases was shared by the Chinese authorities.
+      This strain of the coronavirus has been termed as the severe acute respiratory syndrome coronavirus 2 (SARS-CoV-2) or COVID-19
+      Most people infected with the COVID-19 virus experience mild to moderate respiratory illness and recover without requiring special treatment. Older people are especially vulnerable, and those with underlying medical problems like cardiovascular
+      disease, diabetes, chronic respiratory disease, and cancer are more likely to develop serious illness.
+    </p>
+    <p>The following chart represents the Number of deaths plotted against the number of cases by state.
+      The size of the bubble is symbolic to the number of tests conducted by the state.
+      <br><br>
+      The Chart on the left shows a simple cases vs deaths by State.
+      <br><br>
+      The Chart on the right considers the population of the states.
+      <br>
+      <button onclick="window.location.href='us_trend.html';" class="button">
+        US Trend
+      </button>
+    </p>
+
+  </div>
+
+  <div id="chartleft">
+    <h4>Cases Vs Deaths</h4>
+    <div id="lefttoolbox1"></div>
+  </div>
+
+  <div id="chartright">
+    <h4>Cases by population vs Deaths</h4>
+    <div id="righttoolbox"></div>
+  </div>
+  </div>
+  <script>
+    // set the dimensions and margins of the graph
+    var margin = {
+        top: 10,
+        right: 20,
+        bottom: 30,
+        left: 50
+      },
+      width = 500 - margin.left - margin.right,
+      height = 420 - margin.top - margin.bottom;
+
+    // append the svg object to the body of the page
+    var svg1 = d3.select("#chartleft")
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform",
+        "translate(" + margin.left + "," + margin.top + ")");
+
+    //Read the data
+    d3.csv("./data/daily.csv", function(data) {
+
+      // Add X axis
+      var x = d3.scaleLinear()
+        .domain([1000, 550000])
+        .range([0, width]);
+      svg1.append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.axisBottom(x));
+
+      // Add Y axis
+      var y = d3.scaleLinear()
+        .domain([0, 27000])
+        .range([height, 0]);
+      svg1.append("g")
+        .call(d3.axisLeft(y));
+
+      // Add a scale for bubble size
+      var z = d3.scaleLinear()
+        .domain([200000, 1000000])
+        .range([1, 4]);
+
+
+      var dataReady = d3.nest() // nest function allows to group the calculation per level of a factor
+        .key(function(d) {
+          return d.state;
+        })
+        .rollup(function(v) {
+          return {
+            positive: d3.sum(v, function(d) {
+              return d.positiveIncrease;
+            }),
+            deceased: d3.sum(v, function(d) {
+              return Math.abs(d.deathIncrease);
+            }),
+            tests: d3.sum(v, function(d) {
+              return Math.abs(d.totalTestResultsIncrease);
+            }),
+            hospitalized: d3.sum(v, function(d) {
+              return Math.abs(d.hospitalizedCurrently);
+            })
+          };
+        })
+        .entries(data);
+
+      console.log(dataReady);
+
+      var res = dataReady.map(function(d) {
+        return d.key
+      }) // list of group names
+
+      // Add a scale for bubble color
+      var color = d3.scaleOrdinal()
+        .domain([2000,50000,100000,250000,500000])
+        .range(['#FFBF00','#FF5F42','#D2222D','#761603'])
+
+      console.log(color);
+      // -1- Create a tooltip div that is hidden by default:
+      var tooltip1 = d3.select("#lefttoolbox1")
+        .append("div")
+        .style("opacity", 0)
+        .attr("class", "tooltip")
+        .style("background-color", "black")
+        .style("border-radius", "5px")
+        .style("padding", "10px")
+        .style("color", "white")
+
+      // -2- Create 3 functions to show / update (when mouse move but stay on same circle) / hide the tooltip
+      var showTooltip1 = function(d) {
+        tooltip1
+          .transition()
+          .duration(200)
+        tooltip1
+          .style("opacity", 1)
+          .data(dataReady)
+          .html("State: " + d.key +"<br/>Cases: " + d.value.positive + "<br/>Deaths: " + d.value.deceased
+            + "<br/>Tests: " + d.value.tests)
+          .style("left", (d3.event.pageY + 16) + "px")
+          .style("top", (d3.event.pageX + 16) + "px")
+      }
+      var moveTooltip1 = function(d) {
+        tooltip1
+          .style("left", (d3.event.pageY + 16) + "px")
+          .style("top", (d3.event.pageY + 16)+ "px")
+      }
+      var hideTooltip1 = function(d) {
+        tooltip1
+          .transition()
+          .duration(200)
+          .style("opacity", 0)
+      }
+
+      // Add dots
+      svg1.append('g')
+        .selectAll("dot")
+        .data(dataReady)
+        .enter()
+        .append("circle")
+        .attr("class", "bubbles")
+        .attr("cx", function(d) {
+          return x(d.value.positive);
+        })
+        .attr("cy", function(d) {
+          return y(d.value.deceased);
+        })
+        .attr("r", function(d) {
+          return z(d.value.tests);
+        })
+        .style("fill", function(d) {
+          return color(d.value.positive);
+        })
+        // -3- Trigger the functions
+        .on("mouseover", showTooltip1)
+        .on("mousemove", moveTooltip1)
+        .on("mouseleave", hideTooltip1)
+
+    })
+
+    //
+    //
+    // append the svg object to the body of the page
+    var svg = d3.select("#chartright")
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform",
+        "translate(" + margin.left + "," + margin.top + ")");
+
+    d3.csv("./data/Populations.csv", function(stat) {
+      //Read the data
+      d3.csv("./data/daily.csv", function(data) {
+
+        // Add X axis
+        var x = d3.scaleLinear()
+          .domain([0, 2500])
+          .range([0, width]);
+        svg.append("g")
+          .attr("transform", "translate(0," + height + ")")
+          .call(d3.axisBottom(x));
+
+        // Add Y axis
+        var y = d3.scaleLinear()
+          .domain([0, 30000])
+          .range([height, 0]);
+        svg.append("g")
+          .call(d3.axisLeft(y));
+
+        // Add a scale for bubble size
+        var z = d3.scaleLinear()
+          .domain([0, 5000])
+          .range([1, 4]);
+
+        var dataReady = d3.nest() // nest function allows to group the calculation per level of a factor
+          .key(function(d) {
+            return d.state;
+          })
+          .rollup(function(v) {
+            return {
+              positive: d3.sum(v, function(d) {
+                return d.positiveIncrease;
+              }),
+              deceased: d3.sum(v, function(d) {
+                return Math.abs(d.deathIncrease);
+              }),
+              tests: d3.sum(v, function(d) {
+                return Math.abs(d.totalTestResultsIncrease);
+              }),
+              hospitalized: d3.sum(v, function(d) {
+                return Math.abs(d.hospitalizedCurrently);
+              })
+            };
+          })
+          .entries(data);
+
+        var finalData = [];
+        dataReady.forEach(function(d) {
+          stat.filter(function(d1) {
+            if (d1.Code == d.key) {
+              finalData.push({
+                key: d.key,
+                value: d.value,
+                pop : Number(d1.Pop/100000)
+              })
+            }
+
+          })
+        });
+
+        console.log(finalData)
+        var res = finalData.map(function(d) {
+          return d.key
+        }) // list of group names
+
+        // Add a scale for bubble color
+        var color = d3.scaleOrdinal()
+        .domain([2000,50000,100000,250000,500000])
+        .range(['#FFBF00','#FF5F42','#D2222D','#761603'])
+
+        // -1- Create a tooltip div that is hidden by default:
+        var tooltip = d3.select("#righttoolbox")
+          .append("div")
+          .style("opacity", 0)
+          .attr("class", "tooltip1")
+          .style("background-color", "lightsteelblue")
+          .style("border-radius", "5px")
+          .style("padding", "10px")
+          .style("color", "black")
+
+        // -2- Create 3 functions to show / update (when mouse move but stay on same circle) / hide the tooltip
+        var showTooltip = function(d) {
+          tooltip
+            .transition()
+            .duration(200)
+          console.log(d3.event);
+
+          tooltip
+            .style("opacity", 1)
+            .data(finalData)
+            .html("State: " + d.key +"<br/>Cases: " + Math.round(d.value.positive/d.pop)+ "<br/>Deaths: " + d.value.deceased
+                         +"<br/>Tests:" + Math.round(d.value.tests/d.pop))
+            .style("left", (d3.event.pageY + 16) + "px")
+            .style("top", (d3.event.pageX +16) + "px")
+        }
+        var moveTooltip = function(d) {
+          tooltip
+            .style("left", (d3.event.pageY + 16) + "px")
+            .style("top", (d3.event.pageX + 16) + "px")
+        }
+        var hideTooltip = function(d) {
+          tooltip
+            .transition()
+            .duration(200)
+            .style("opacity", 0)
+        }
+
+        // Add dots
+        svg.append('g')
+          .selectAll("dot")
+          .data(finalData)
+          .enter()
+          .append("circle")
+          .attr("class", "bubbles")
+          .attr("cx", function(d) {
+            return x(d.value.positive/d.pop);
+          })
+          .attr("cy", function(d) {
+            return y(d.value.deceased);
+          })
+          .attr("r", function(d) {
+            return z(d.value.tests/d.pop);
+          })
+          .style("fill", function(d) {
+            return color(d.value.positive/d.pop);
+          })
+          // -3- Trigger the functions
+          .on("mouseover", showTooltip)
+          .on("mousemove", moveTooltip)
+          .on("mouseleave", hideTooltip)
+
+      })
+    })
+  </script>
+
+</body>
+
+</html>
